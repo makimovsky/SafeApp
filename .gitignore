@@ -9,6 +9,9 @@ __pycache__/
 instance/
 .webassets-cache
 
+# nginx ssl
+/nginx/ssl
+
 # PyBuilder
 target/
 
