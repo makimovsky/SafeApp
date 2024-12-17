@@ -24,10 +24,10 @@ def user_loader(username):
     if username is None:
         return None
 
-    db = sqlite3.connect(DATABASE)
-    sql = db.cursor()
-    sql.execute(f"SELECT username, password FROM user WHERE username = '{username}'")
-    row = sql.fetchone()
+    db_user_loader = sqlite3.connect(DATABASE)
+    sql_user_loader = db_user_loader.cursor()
+    sql_user_loader.execute(f"SELECT username, password FROM user WHERE username = ?", (username,))
+    row = sql_user_loader.fetchone()
     try:
         username, password = row
     except:
@@ -40,16 +40,13 @@ def user_loader(username):
 
 
 @login_manager.request_loader
-def request_loader(request):
-    username = request.form.get('username')
+def request_loader(login_request):
+    username = login_request.form.get('username')
     user = user_loader(username)
     return user
 
 
-recent_users = deque(maxlen=3)
-
-
-@app.route("/", methods=["GET","POST"])
+@app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
         return render_template("index.html")
@@ -76,13 +73,12 @@ def logout():
 @login_required
 def hello():
     if request.method == 'GET':
-        print(current_user.id)
         username = current_user.id
 
-        db = sqlite3.connect(DATABASE)
-        sql = db.cursor()
-        sql.execute(f"SELECT id FROM notes WHERE username == '{username}'")
-        notes = sql.fetchall()
+        db_hello = sqlite3.connect(DATABASE)
+        sql_hello = db_hello.cursor()
+        sql_hello.execute(f"SELECT id FROM notes WHERE username == ?", (username,))
+        notes = sql_hello.fetchall()
 
         return render_template("hello.html", username=username, notes=notes)
 
@@ -90,25 +86,25 @@ def hello():
 @app.route("/render", methods=['POST'])
 @login_required
 def render():
-    md = request.form.get("markdown","")
+    md = request.form.get("markdown", "")
     rendered = markdown.markdown(md)
     username = current_user.id
-    db = sqlite3.connect(DATABASE)
-    sql = db.cursor()
-    sql.execute(f"INSERT INTO notes (username, note) VALUES ('{username}', '{rendered}')")
-    db.commit()
+    db_render = sqlite3.connect(DATABASE)
+    sql_render = db_render.cursor()
+    sql_render.execute(f"INSERT INTO notes (username, note) VALUES (?, ?)", (username, rendered))
+    db_render.commit()
     return render_template("markdown.html", rendered=rendered)
 
 
 @app.route("/render/<rendered_id>")
 @login_required
 def render_old(rendered_id):
-    db = sqlite3.connect(DATABASE)
-    sql = db.cursor()
-    sql.execute(f"SELECT username, note FROM notes WHERE id == {rendered_id}")
+    db_render_old = sqlite3.connect(DATABASE)
+    sql_render_old = db_render_old.cursor()
+    sql_render_old.execute(f"SELECT username, note FROM notes WHERE id == ?", (rendered_id,))
 
     try:
-        username, rendered = sql.fetchone()
+        username, rendered = sql_render_old.fetchone()
         if username != current_user.id:
             return "Access to note forbidden", 403
         return render_template("markdown.html", rendered=rendered)
