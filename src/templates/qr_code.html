@@ -1,0 +1,12 @@
+<html>
+<head>
+    <title>QR Code</title>
+</head>
+<body>
+    <h1>Setup Two-Factor Authentication</h1>
+    <p>You have to scan this QR code with your authenticator app to login.</p>
+    <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+    <p>If you cannot scan the QR code, use this code: <strong>{{ totp_secret }}</strong></p>
+    <a href="/">Go to Login</a>
+</body>
+</html>

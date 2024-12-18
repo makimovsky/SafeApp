@@ -3,6 +3,10 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 import markdown
 from passlib.hash import sha256_crypt
 import sqlite3
+import pyotp
+import qrcode
+import io
+import base64
 
 app = Flask(__name__)
 
@@ -25,23 +29,17 @@ def user_loader(username):
 
     db_user_loader = sqlite3.connect(DATABASE)
     sql_user_loader = db_user_loader.cursor()
-    sql_user_loader.execute(f"SELECT username, password FROM user WHERE username = ?", (username,))
+    sql_user_loader.execute(f"SELECT username, password, totp_secret FROM user WHERE username = ?", (username,))
     row = sql_user_loader.fetchone()
     try:
-        username, password = row
+        username, password, totp = row
     except:
         return None
 
     user = User()
     user.id = username
     user.password = password
-    return user
-
-
-@login_manager.request_loader
-def request_loader(login_request):
-    username = login_request.form.get('username')
-    user = user_loader(username)
+    user.totp = totp
     return user
 
 
@@ -49,17 +47,23 @@ def request_loader(login_request):
 def login():
     if request.method == "GET":
         return render_template("index.html")
+
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
         user = user_loader(username)
-        if user is None:
-            return "Nieprawidłowy login lub hasło", 401
-        if sha256_crypt.verify(password, user.password):
+
+        if user is None or not sha256_crypt.verify(password, user.password):
+            return "Invalid username or password", 401
+
+        code = request.form.get("code")
+
+        totp = pyotp.TOTP(user.totp)
+        if totp.verify(code):
             login_user(user)
-            return redirect('/hello')
+            return redirect("/hello")
         else:
-            return "Nieprawidłowy login lub hasło", 401
+            return "Invalid 2FA code", 401
 
 
 @app.route("/logout")
@@ -108,42 +112,44 @@ def register():
             return "Username and password are required", 403
 
         hashed_password = sha256_crypt.hash(password)
+        totp_secret = pyotp.random_base32()
 
         db_register = sqlite3.connect(DATABASE)
         sql_register = db_register.cursor()
-        sql_register.execute("SELECT * FROM user WHERE username = ?", (username,))
-        if sql_register.fetchone():
+
+        try:
+            sql_register.execute("INSERT INTO user (username, password, totp_secret) VALUES (?, ?, ?)",
+                                 (username, hashed_password, totp_secret))
+            db_register.commit()
+        except:
             return "User already exists", 403
 
-        sql_register.execute("INSERT INTO user (username, password) VALUES (?, ?)", (username, hashed_password))
-        db_register.commit()
-        return redirect("/")
+        totp = pyotp.TOTP(totp_secret)
+        provisioning_uri = totp.provisioning_uri(username, issuer_name="SafeAPP")
+        qr_img = qrcode.make(provisioning_uri)
+
+        buffer = io.BytesIO()
+        qr_img.save(buffer, format="PNG")
+        buffer.seek(0)
+        qr_code_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+
+        return render_template("qr_code.html", qr_code=qr_code_base64, totp_secret=totp_secret)
 
 
 if __name__ == "__main__":
     print("[*] Init database!")
     db = sqlite3.connect(DATABASE)
     sql = db.cursor()
-    sql.execute("DROP TABLE IF EXISTS user;")
-    sql.execute("CREATE TABLE user "
-                "(username VARCHAR(32),"
-                "password VARCHAR(128));")
-    sql.execute("DELETE FROM user;")
-    sql.execute("INSERT INTO user (username, password) VALUES "
-                "('bach', '$5$rounds=535000$ZJ4umOqZwQkWULPh$LwyaABcGgVyOvJwualNZ5/qM4XcxxPpkm9TKh4Zm4w4');")
-    sql.execute("INSERT INTO user (username, password) VALUES "
-                "('john', '$5$rounds=535000$AO6WA6YC49CefLFE$dsxygCJDnLn5QNH/V8OBr1/aEjj22ls5zel8gUh4fw9');")
-    sql.execute("INSERT INTO user (username, password) VALUES "
-                "('bob', '$5$rounds=535000$.ROSR8G85oGIbzaj$u653w8l1TjlIj4nQkkt3sMYRF7NAhUJ/ZMTdSPyH737');")
+    sql.execute("CREATE TABLE IF NOT EXISTS user "
+                "(username VARCHAR(32) PRIMARY KEY,"
+                "password VARCHAR(128),"
+                "totp_secret VARCHAR(32));")
 
-    sql.execute("DROP TABLE IF EXISTS feeds;")
-    sql.execute("CREATE TABLE feeds "
+    sql.execute("CREATE TABLE IF NOT EXISTS feeds "
                 "(id INTEGER PRIMARY KEY,"
                 "username VARCHAR(32),"
                 "feed VARCHAR(256),"
                 "feed_date DATETIME DEFAULT CURRENT_TIMESTAMP);")
-    sql.execute("DELETE FROM feeds;")
-    sql.execute("INSERT INTO feeds (username, feed, id) VALUES ('bob', 'To jest sekret!', 1);")
     db.commit()
 
     app.run("0.0.0.0", 8080)

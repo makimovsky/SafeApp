@@ -2,6 +2,14 @@
 <head>
     <meta charset="UTF-8">
     <title>Feeds</title>
+    <style>
+        .feed-container {
+            margin-bottom: 20px;
+        }
+        .feed-content {
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
 <h1>Hello {{ username }}!</h1>
@@ -16,13 +24,11 @@
   <input type="submit" value="Post">
 </form>
 
-{% if all_feeds|length > 0 %}
 <h1>Feeds</h1>
 {% for feed in all_feeds %}
-{{ feed[1] | safe }} <br>
-<strong>{{ feed[0] }}</strong><br>
-<em>{{ feed[2] }}</em><br><br>
+    <div class="feed-container">
+        <p class="feed-content">
+            <hr><p><strong>{{ feed[0] }}</strong> {{ feed[2] }}<br>{{ feed[1]|safe }}</p>
+        </div>
+    </div>
 {% endfor %}
-{% endif %}
-</body>
-</html>
