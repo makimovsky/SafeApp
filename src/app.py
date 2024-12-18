@@ -1,7 +1,6 @@
-from flask import Flask, render_template, request, make_response, redirect
+from flask import Flask, render_template, request, redirect
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import markdown
-from collections import deque
 from passlib.hash import sha256_crypt
 import sqlite3
 
@@ -112,6 +111,30 @@ def render_old(rendered_id):
         return "Note not found", 404
 
 
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "GET":
+        return render_template("register.html")
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if not username or not password:
+            return "Username and password are required", 403
+
+        hashed_password = sha256_crypt.hash(password)
+
+        db_register = sqlite3.connect(DATABASE)
+        sql_register = db_register.cursor()
+        sql_register.execute("SELECT * FROM user WHERE username = ?", (username,))
+        if sql_register.fetchone():
+            return "User already exists", 403
+
+        sql_register.execute("INSERT INTO user (username, password) VALUES (?, ?)", (username, hashed_password))
+        db_register.commit()
+        return redirect("/")
+
+
 if __name__ == "__main__":
     print("[*] Init database!")
     db = sqlite3.connect(DATABASE)
@@ -129,4 +152,4 @@ if __name__ == "__main__":
     sql.execute("INSERT INTO notes (username, note, id) VALUES ('bob', 'To jest sekret!', 1);")
     db.commit()
 
-    app.run("0.0.0.0", 5000)
+    app.run("0.0.0.0", 8080)
