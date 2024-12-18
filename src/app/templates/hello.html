@@ -13,11 +13,11 @@
 </head>
 <body>
 <h1>Hello {{ username }}!</h1>
-<form action={{ url_for('logout') }}>
+<form action={{ url_for('auth.logout') }}>
   <input type="submit" value="Log out" />
 </form>
 
-<form action={{ url_for('render') }} method="post">
+<form action={{ url_for('main.render') }} method="post">
   <label for="markdown">Share something:</label><br>
   <textarea id="markdown" name="markdown" rows="5" cols="50"></textarea>
   <br>
