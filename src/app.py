@@ -76,10 +76,11 @@ def hello():
 
         db_hello = sqlite3.connect(DATABASE)
         sql_hello = db_hello.cursor()
-        sql_hello.execute(f"SELECT id FROM notes WHERE username == ?", (username,))
-        notes = sql_hello.fetchall()
 
-        return render_template("hello.html", username=username, notes=notes)
+        sql_hello.execute("SELECT username, feed, feed_date FROM feeds ORDER BY feed_date DESC")
+        all_feeds = sql_hello.fetchall()
+
+        return render_template("hello.html", username=username, all_feeds=all_feeds)
 
 
 @app.route("/render", methods=['POST'])
@@ -90,25 +91,9 @@ def render():
     username = current_user.id
     db_render = sqlite3.connect(DATABASE)
     sql_render = db_render.cursor()
-    sql_render.execute(f"INSERT INTO notes (username, note) VALUES (?, ?)", (username, rendered))
+    sql_render.execute(f"INSERT INTO feeds (username, feed) VALUES (?, ?)", (username, rendered))
     db_render.commit()
     return render_template("markdown.html", rendered=rendered)
-
-
-@app.route("/render/<rendered_id>")
-@login_required
-def render_old(rendered_id):
-    db_render_old = sqlite3.connect(DATABASE)
-    sql_render_old = db_render_old.cursor()
-    sql_render_old.execute(f"SELECT username, note FROM notes WHERE id == ?", (rendered_id,))
-
-    try:
-        username, rendered = sql_render_old.fetchone()
-        if username != current_user.id:
-            return "Access to note forbidden", 403
-        return render_template("markdown.html", rendered=rendered)
-    except:
-        return "Note not found", 404
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -140,16 +125,25 @@ if __name__ == "__main__":
     db = sqlite3.connect(DATABASE)
     sql = db.cursor()
     sql.execute("DROP TABLE IF EXISTS user;")
-    sql.execute("CREATE TABLE user (username VARCHAR(32), password VARCHAR(128));")
+    sql.execute("CREATE TABLE user "
+                "(username VARCHAR(32),"
+                "password VARCHAR(128));")
     sql.execute("DELETE FROM user;")
-    sql.execute("INSERT INTO user (username, password) VALUES ('bach', '$5$rounds=535000$ZJ4umOqZwQkWULPh$LwyaABcGgVyOvJwualNZ5/qM4XcxxPpkm9TKh4Zm4w4');")
-    sql.execute("INSERT INTO user (username, password) VALUES ('john', '$5$rounds=535000$AO6WA6YC49CefLFE$dsxygCJDnLn5QNH/V8OBr1/aEjj22ls5zel8gUh4fw9');")
-    sql.execute("INSERT INTO user (username, password) VALUES ('bob', '$5$rounds=535000$.ROSR8G85oGIbzaj$u653w8l1TjlIj4nQkkt3sMYRF7NAhUJ/ZMTdSPyH737');")
+    sql.execute("INSERT INTO user (username, password) VALUES "
+                "('bach', '$5$rounds=535000$ZJ4umOqZwQkWULPh$LwyaABcGgVyOvJwualNZ5/qM4XcxxPpkm9TKh4Zm4w4');")
+    sql.execute("INSERT INTO user (username, password) VALUES "
+                "('john', '$5$rounds=535000$AO6WA6YC49CefLFE$dsxygCJDnLn5QNH/V8OBr1/aEjj22ls5zel8gUh4fw9');")
+    sql.execute("INSERT INTO user (username, password) VALUES "
+                "('bob', '$5$rounds=535000$.ROSR8G85oGIbzaj$u653w8l1TjlIj4nQkkt3sMYRF7NAhUJ/ZMTdSPyH737');")
 
-    sql.execute("DROP TABLE IF EXISTS notes;")
-    sql.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, username VARCHAR(32), note VARCHAR(256));")
-    sql.execute("DELETE FROM notes;")
-    sql.execute("INSERT INTO notes (username, note, id) VALUES ('bob', 'To jest sekret!', 1);")
+    sql.execute("DROP TABLE IF EXISTS feeds;")
+    sql.execute("CREATE TABLE feeds "
+                "(id INTEGER PRIMARY KEY,"
+                "username VARCHAR(32),"
+                "feed VARCHAR(256),"
+                "feed_date DATETIME DEFAULT CURRENT_TIMESTAMP);")
+    sql.execute("DELETE FROM feeds;")
+    sql.execute("INSERT INTO feeds (username, feed, id) VALUES ('bob', 'To jest sekret!', 1);")
     db.commit()
 
     app.run("0.0.0.0", 8080)
