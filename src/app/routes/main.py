@@ -3,8 +3,15 @@ from flask_login import login_required, current_user
 import sqlite3
 import markdown
 from ..models import DATABASE
+import bleach
 
 main_bp = Blueprint("main", __name__)
+
+ALLOWED_TAGS = bleach.sanitizer.ALLOWED_TAGS | {"h1", "h2", "h3", "pre", "p", "img"}
+ALLOWED_ATTRIBUTES = {
+    **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+    "img": ["src", "alt", "title"],
+}
 
 
 @main_bp.route("/hello", methods=["GET"])
@@ -25,12 +32,15 @@ def hello():
 def render():
     md = request.form.get("markdown", "")
     rendered = markdown.markdown(md)
+    print(rendered)
     username = current_user.id
+
+    rendered_safe = bleach.clean(rendered, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
 
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
     cursor.execute(
-        "INSERT INTO feeds (username, feed) VALUES (?, ?)", (username, rendered)
+        "INSERT INTO feeds (username, feed) VALUES (?, ?)", (username, rendered_safe)
     )
     db.commit()
-    return render_template("markdown.html", rendered=rendered)
+    return render_template("markdown.html", rendered=rendered_safe)
