@@ -7,9 +7,25 @@ import bleach
 
 main_bp = Blueprint("main", __name__)
 
-ALLOWED_TAGS = bleach.sanitizer.ALLOWED_TAGS | {"h1", "h2", "h3", "pre", "p", "img"}
+ALLOWED_TAGS = {
+    "h1",
+    "h2",
+    "h3",
+    "p",
+    "img",
+    "a",
+    "b",
+    "blockquote",
+    "code",
+    "em",
+    "i",
+    "li",
+    "ol",
+    "strong",
+    "ul",
+}
 ALLOWED_ATTRIBUTES = {
-    **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+    "a": ["href", "title"],
     "img": ["src", "alt", "title"],
 }
 
@@ -32,10 +48,11 @@ def hello():
 def render():
     md = request.form.get("markdown", "")
     rendered = markdown.markdown(md)
-    print(rendered)
     username = current_user.id
 
-    rendered_safe = bleach.clean(rendered, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+    rendered_safe = bleach.clean(
+        rendered, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES
+    )
 
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
