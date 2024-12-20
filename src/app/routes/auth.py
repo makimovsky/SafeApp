@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect
-from flask_login import login_user, logout_user
+from flask_login import login_user, logout_user, login_required, current_user
 from passlib.hash import sha256_crypt
 import pyotp
 import qrcode
@@ -35,6 +35,37 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
+
+
+@auth_bp.route("/change_password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "GET":
+        return render_template("change_password.html")
+
+    current_password = request.form.get("current_password")
+    new_password = request.form.get("new_password")
+    code = request.form.get("code")
+
+    user = current_user
+
+    if not sha256_crypt.verify(current_password, user.password):
+        return "Current password is incorrect", 403
+
+    totp = pyotp.TOTP(user.totp)
+    if totp.verify(code):
+        hashed_password = sha256_crypt.hash(new_password)
+
+        db = sqlite3.connect(DATABASE)
+        cursor = db.cursor()
+        cursor.execute(
+            "UPDATE user SET password = ? WHERE username = ?", (hashed_password, user.id)
+        )
+        db.commit()
+
+        return redirect("/hello")
+
+    return "Invalid 2FA token", 403
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])

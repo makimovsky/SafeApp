@@ -1,33 +1,28 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Feeds</title>
-    <style>
-        .feed-container {
-            margin-bottom: 20px;
-        }
-        .feed-content {
-            margin-bottom: 10px;
-        }
-    </style>
+    <title>Feed</title>
 </head>
 <body>
 <h1>Hello {{ username }}!</h1>
-<form action={{ url_for('auth.logout') }}>
+<form action="{{ url_for('auth.change_password') }}">
+  <input type="submit" value="Change Password" />
+</form>
+<form action="{{ url_for('auth.logout') }}">
   <input type="submit" value="Log out" />
 </form>
 
-<form action={{ url_for('main.render') }} method="post">
+<form action="{{ url_for('main.render') }}" method="post">
   <label for="markdown">Share something:</label><br>
   <textarea id="markdown" name="markdown" rows="5" cols="50"></textarea>
   <br>
   <input type="submit" value="Post">
 </form>
 
-<h1>Feeds</h1>
+<h1>Feed</h1>
 {% for feed in all_feeds %}
-    <div class="feed-container">
-        <p class="feed-content">
+    <div>
+        <p>
             <hr><p><strong>{{ feed[0] }}</strong> {{ feed[2] }}<br>{{ feed[1]|safe }}</p>
         </div>
     </div>
