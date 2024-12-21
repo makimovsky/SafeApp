@@ -4,6 +4,7 @@ import sqlite3
 import markdown
 from ..models import DATABASE
 import bleach
+from ..helpers import is_input_valid
 
 main_bp = Blueprint("main", __name__)
 
@@ -23,6 +24,7 @@ ALLOWED_TAGS = {
     "ol",
     "strong",
     "ul",
+    'br'
 }
 ALLOWED_ATTRIBUTES = {
     "a": ["href", "title"],
@@ -47,7 +49,10 @@ def hello():
 @login_required
 def render():
     md = request.form.get("markdown", "")
-    rendered = markdown.markdown(md)
+    if not is_input_valid(md):
+        return "Invalid input.", 401
+
+    rendered = markdown.markdown(md, extensions=['nl2br'])
     username = current_user.id
 
     rendered_safe = bleach.clean(

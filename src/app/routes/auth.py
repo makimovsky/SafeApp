@@ -6,6 +6,7 @@ import qrcode
 import io
 import base64
 from ..models import user_loader, DATABASE
+from ..helpers import is_input_valid, count_entropy
 import sqlite3
 
 auth_bp = Blueprint("auth", __name__)
@@ -18,12 +19,18 @@ def login():
 
     username = request.form.get("username")
     password = request.form.get("password")
+
+    if not is_input_valid(username, val='username'):
+        return "Invalid input for username", 401
+
     user = user_loader(username)
 
     if user is None or not sha256_crypt.verify(password, user.password):
         return "Invalid username or password", 401
 
     code = request.form.get("code")
+    if not is_input_valid(code, val='code'):
+        return "Invalid input for 2FA", 401
     totp = pyotp.TOTP(user.totp)
     if totp.verify(code):
         login_user(user)
@@ -46,6 +53,9 @@ def change_password():
     current_password = request.form.get("current_password")
     new_password = request.form.get("new_password")
     code = request.form.get("code")
+
+    if not is_input_valid(code, val='code'):
+        return "Invalid input for 2FA", 403
 
     user = current_user
 
@@ -77,8 +87,11 @@ def register():
     username = request.form.get("username")
     password = request.form.get("password")
 
-    if not username or not password:
-        return "Username and password are required", 403
+    if not is_input_valid(username, val='username'):
+        return "Invalid input for username", 401
+
+    if count_entropy(password) < 60:
+        return "Your password is too weak.", 401
 
     hashed_password = sha256_crypt.hash(password)
     totp_secret = pyotp.random_base32()
