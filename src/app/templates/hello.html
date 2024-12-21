@@ -2,6 +2,18 @@
 <head>
     <meta charset="UTF-8">
     <title>Feed</title>
+    <style>
+        .username-link {
+            text-decoration: none;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .username-link:hover {
+            color: blue;
+        }
+    </style>
 </head>
 <body>
 <h1>Hello {{ username }}!</h1>
@@ -22,8 +34,11 @@
 <h1>Feed</h1>
 {% for feed in all_feeds %}
     <div>
-        <p>
-            <hr><p><strong>{{ feed[0] }}</strong> {{ feed[2] }}<br>{{ feed[1]|safe }}</p>
+            <hr>
+            <p>
+                <a href="{{ url_for('user_page.user_page', user_id=feed[0]) }}" class="username-link"><strong>{{ feed[0] }}</strong></a>
+                <em>{{ feed[2] }}</em><br>{{ feed[1]|safe }}
+            </p>
         </div>
     </div>
 {% endfor %}

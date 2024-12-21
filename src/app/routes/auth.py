@@ -59,7 +59,8 @@ def change_password():
         db = sqlite3.connect(DATABASE)
         cursor = db.cursor()
         cursor.execute(
-            "UPDATE user SET password = ? WHERE username = ?", (hashed_password, user.id)
+            "UPDATE user SET password = ? WHERE username = ?",
+            (hashed_password, user.id)
         )
         db.commit()
 
@@ -88,7 +89,7 @@ def register():
     try:
         cursor.execute(
             "INSERT INTO user (username, password, totp_secret) VALUES (?, ?, ?)",
-            (username, hashed_password, totp_secret),
+            (username, hashed_password, totp_secret)
         )
         db.commit()
     except sqlite3.IntegrityError:
@@ -103,4 +104,6 @@ def register():
     buffer.seek(0)
     qr_code_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 
-    return render_template("qr_code.html", qr_code=qr_code_base64, totp_secret=totp_secret)
+    return render_template(
+        "qr_code.html", qr_code=qr_code_base64, totp_secret=totp_secret
+    )

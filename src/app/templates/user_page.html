@@ -1,0 +1,28 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>User Page - {{ username }}</title>
+    <style>
+        .username {
+            color: black;
+            font-weight: bold;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+<form action="{{ url_for('main.hello') }}">
+  <input type="submit" value="Back to Home" />
+</form>
+
+<h1>{{ username }}'s Posts</h1>
+{% if user_feeds %}
+    {% for feed in user_feeds %}
+        <div>
+            <hr>
+            <p><strong><span class="username">{{ username }}</span></strong> <em>{{ feed[2] }}</em><br>{{ feed[1]|safe }}</p>
+        </div>
+    {% endfor %}
+{% endif %}
+</body>
+</html>

@@ -1,5 +1,8 @@
 from flask import Flask
 from flask_login import LoginManager
+from .routes.auth import auth_bp
+from .routes.main import main_bp
+from .routes.user_page import user_bp
 
 login_manager = LoginManager()
 
@@ -10,10 +13,8 @@ def create_app():
 
     login_manager.init_app(app)
 
-    from .routes.auth import auth_bp
-    from .routes.main import main_bp
-
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
+    app.register_blueprint(user_bp)
 
     return app
