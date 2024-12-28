@@ -8,6 +8,8 @@ import base64
 from ..models import user_loader, DATABASE
 from ..helpers import is_input_valid, count_entropy
 import sqlite3
+import time
+from ..auth_limits import is_locked_out, reset_attempts, record_failed_attempt, DELAY_TIME, login_attempts
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -19,23 +21,37 @@ def login():
 
     username = request.form.get("username")
     password = request.form.get("password")
+    client_ip = request.remote_addr
+
+    if is_locked_out(client_ip):
+        return "Too many failed attempts. Try again later.", 403
 
     if not is_input_valid(username, val='username'):
+        record_failed_attempt(client_ip)
         return "Invalid input for username", 401
 
     user = user_loader(username)
 
     if user is None or not sha256_crypt.verify(password, user.password):
+        time.sleep(DELAY_TIME)
+        record_failed_attempt(client_ip)
         return "Invalid username or password", 401
 
     code = request.form.get("code")
     if not is_input_valid(code, val='code'):
+        time.sleep(DELAY_TIME)
+        record_failed_attempt(client_ip)
         return "Invalid input for 2FA", 401
+
     totp = pyotp.TOTP(user.totp)
-    if totp.verify(code):
-        login_user(user)
-        return redirect("/hello")
-    return "Invalid 2FA code", 401
+    if not totp.verify(code):
+        time.sleep(DELAY_TIME)
+        record_failed_attempt(client_ip)
+        return "Invalid 2FA code", 401
+
+    reset_attempts(client_ip)
+    login_user(user)
+    return redirect("/hello")
 
 
 @auth_bp.route("/logout")
