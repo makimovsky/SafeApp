@@ -14,5 +14,10 @@ def user_page(user_id):
         (user_id,)
     )
     user_feeds = cursor.fetchall()
+    cursor.execute(
+        "SELECT pub_key FROM user WHERE username == ?",
+        (user_id,)
+    )
+    pub_key = cursor.fetchall()[0][0]
 
-    return render_template("user_page.html", username=user_id, user_feeds=user_feeds)
+    return render_template("user_page.html", username=user_id, user_feeds=user_feeds, pub_key=pub_key)

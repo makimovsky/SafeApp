@@ -13,6 +13,9 @@ from ..auth_limits import is_locked_out, reset_attempts, record_failed_attempt, 
 from Crypto.Cipher import AES
 from Crypto import Random
 from Crypto.Protocol.KDF import PBKDF2
+from Crypto.PublicKey import RSA
+from Crypto.Util.Padding import pad, unpad
+
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -46,7 +49,7 @@ def login():
         record_failed_attempt(client_ip)
         return "Invalid input for 2FA", 401
 
-    totp_enc = base64.b64decode(user.totp)
+    totp_enc = user.totp
     iv = totp_enc[:AES.block_size]
     key = PBKDF2(password, user.salt)
     cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -66,6 +69,7 @@ def login():
 @auth_bp.route("/logout")
 def logout():
     logout_user()
+
     return redirect("/")
 
 
@@ -87,11 +91,13 @@ def change_password():
     if not sha256_crypt.verify(current_password, user.password):
         return "Current password is incorrect", 403
 
-    totp_enc = base64.b64decode(user.totp)
+    totp_enc = user.totp
     iv = totp_enc[:AES.block_size]
     key = PBKDF2(current_password, user.salt)
     cipher = AES.new(key, AES.MODE_CBC, iv)
     totp_dec = cipher.decrypt(totp_enc[AES.block_size:]).decode('utf-8')
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    prv_key_dec = unpad(cipher.decrypt(user.prv_key), AES.block_size)
 
     totp = pyotp.TOTP(totp_dec)
     if totp.verify(code):
@@ -99,13 +105,15 @@ def change_password():
 
         new_key = PBKDF2(new_password, user.salt)
         cipher = AES.new(new_key, AES.MODE_CBC, iv)
-        totp_enc = base64.b64encode(iv + cipher.encrypt(totp_dec.encode()))
+        totp_enc = iv + cipher.encrypt(totp_dec.encode())
+        cipher = AES.new(new_key, AES.MODE_CBC, iv)
+        prv_key_enc = cipher.encrypt(pad(prv_key_dec, AES.block_size))
 
         db = sqlite3.connect(DATABASE)
         cursor = db.cursor()
         cursor.execute(
-            "UPDATE user SET password = ?, totp_secret = ? WHERE username = ?",
-            (hashed_password, totp_enc, user.id)
+            "UPDATE user SET password = ?, totp_secret = ?, prv_key = ? WHERE username = ?",
+            (hashed_password, totp_enc, prv_key_enc, user.id)
         )
         db.commit()
 
@@ -135,15 +143,21 @@ def register():
     salt = Random.new().read(16)
     key = PBKDF2(password, salt)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    totp_enc = base64.b64encode(iv + cipher.encrypt(totp_secret.encode()))
+    totp_enc = iv + cipher.encrypt(totp_secret.encode())
+
+    rsa_keys = RSA.generate(2048)
+    pub_key = rsa_keys.public_key().exportKey()
+    prv_key = pad(rsa_keys.exportKey(), AES.block_size)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    prv_key_enc = cipher.encrypt(prv_key)
 
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
 
     try:
         cursor.execute(
-            "INSERT INTO user (username, password, totp_secret, salt) VALUES (?, ?, ?, ?)",
-            (username, hashed_password, totp_enc, salt)
+            "INSERT INTO user (username, password, salt, totp_secret, pub_key, prv_key) VALUES (?, ?, ?, ?, ?, ?)",
+            (username, hashed_password, salt, totp_enc, pub_key, prv_key_enc)
         )
         db.commit()
     except sqlite3.IntegrityError:

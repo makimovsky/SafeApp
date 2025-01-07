@@ -2,6 +2,7 @@ from app import create_app, login_manager
 from app.models import user_loader, DATABASE
 import sqlite3
 
+
 app = create_app()
 
 
@@ -20,7 +21,9 @@ if __name__ == "__main__":
         "(username VARCHAR(32) PRIMARY KEY,"
         "password VARCHAR(128),"
         "salt VARCHAR(16),"
-        "totp_secret VARCHAR(32));"
+        "totp_secret VARCHAR(32),"
+        "pub_key VARCHAR(256),"
+        "prv_key VARCHAR(256));"
     )
 
     sql.execute(
@@ -28,6 +31,7 @@ if __name__ == "__main__":
         "(id INTEGER PRIMARY KEY,"
         "username VARCHAR(32),"
         "feed VARCHAR(256),"
+        "sign VARCHAR(256),"
         "feed_date DATETIME DEFAULT CURRENT_TIMESTAMP);"
     )
     db.commit()

@@ -26,8 +26,9 @@
 
 <form action="{{ url_for('main.render') }}" method="post">
   <label for="markdown">Share something:</label><br>
-  <textarea id="markdown" name="markdown" rows="5" cols="50"></textarea>
-  <br>
+  <textarea id="markdown" name="markdown" rows="5" cols="50"></textarea><br>
+  <label for="password">Password: </label>
+  <input type="password" id="password" name="password" required><br>
   <input type="submit" value="Post">
 </form>
 
@@ -37,7 +38,7 @@
             <hr>
             <p>
                 <a href="{{ url_for('user_page.user_page', user_id=feed[0]) }}" class="username-link"><strong>{{ feed[0] }}</strong></a>
-                <em>{{ feed[2] }}</em><br>{{ feed[1]|safe }}
+                <em>{{ feed[3] }}</em><br>{{ feed[1]|safe }}<br><strong>Sign: </strong>{{ feed[2] }}
             </p>
         </div>
     </div>
