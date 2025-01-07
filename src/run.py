@@ -19,6 +19,7 @@ if __name__ == "__main__":
         "CREATE TABLE IF NOT EXISTS user "
         "(username VARCHAR(32) PRIMARY KEY,"
         "password VARCHAR(128),"
+        "salt VARCHAR(16),"
         "totp_secret VARCHAR(32));"
     )
 

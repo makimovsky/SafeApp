@@ -9,7 +9,10 @@ from ..models import user_loader, DATABASE
 from ..helpers import is_input_valid, count_entropy
 import sqlite3
 import time
-from ..auth_limits import is_locked_out, reset_attempts, record_failed_attempt, DELAY_TIME, login_attempts
+from ..auth_limits import is_locked_out, reset_attempts, record_failed_attempt, DELAY_TIME
+from Crypto.Cipher import AES
+from Crypto import Random
+from Crypto.Protocol.KDF import PBKDF2
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -43,7 +46,13 @@ def login():
         record_failed_attempt(client_ip)
         return "Invalid input for 2FA", 401
 
-    totp = pyotp.TOTP(user.totp)
+    totp_enc = base64.b64decode(user.totp)
+    iv = totp_enc[:AES.block_size]
+    key = PBKDF2(password, user.salt)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    totp_dec = cipher.decrypt(totp_enc[AES.block_size:]).decode('utf-8')
+
+    totp = pyotp.TOTP(totp_dec)
     if not totp.verify(code):
         time.sleep(DELAY_TIME)
         record_failed_attempt(client_ip)
@@ -78,15 +87,25 @@ def change_password():
     if not sha256_crypt.verify(current_password, user.password):
         return "Current password is incorrect", 403
 
-    totp = pyotp.TOTP(user.totp)
+    totp_enc = base64.b64decode(user.totp)
+    iv = totp_enc[:AES.block_size]
+    key = PBKDF2(current_password, user.salt)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    totp_dec = cipher.decrypt(totp_enc[AES.block_size:]).decode('utf-8')
+
+    totp = pyotp.TOTP(totp_dec)
     if totp.verify(code):
         hashed_password = sha256_crypt.hash(new_password)
+
+        new_key = PBKDF2(new_password, user.salt)
+        cipher = AES.new(new_key, AES.MODE_CBC, iv)
+        totp_enc = base64.b64encode(iv + cipher.encrypt(totp_dec.encode()))
 
         db = sqlite3.connect(DATABASE)
         cursor = db.cursor()
         cursor.execute(
-            "UPDATE user SET password = ? WHERE username = ?",
-            (hashed_password, user.id)
+            "UPDATE user SET password = ?, totp_secret = ? WHERE username = ?",
+            (hashed_password, totp_enc, user.id)
         )
         db.commit()
 
@@ -112,13 +131,19 @@ def register():
     hashed_password = sha256_crypt.hash(password)
     totp_secret = pyotp.random_base32()
 
+    iv = Random.new().read(AES.block_size)
+    salt = Random.new().read(16)
+    key = PBKDF2(password, salt)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    totp_enc = base64.b64encode(iv + cipher.encrypt(totp_secret.encode()))
+
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
 
     try:
         cursor.execute(
-            "INSERT INTO user (username, password, totp_secret) VALUES (?, ?, ?)",
-            (username, hashed_password, totp_secret)
+            "INSERT INTO user (username, password, totp_secret, salt) VALUES (?, ?, ?, ?)",
+            (username, hashed_password, totp_enc, salt)
         )
         db.commit()
     except sqlite3.IntegrityError:

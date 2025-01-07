@@ -15,16 +15,17 @@ def user_loader(username):
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
     cursor.execute(
-        "SELECT username, password, totp_secret FROM user WHERE username = ?",
+        "SELECT username, password, salt, totp_secret FROM user WHERE username = ?",
         (username,),
     )
     row = cursor.fetchone()
     if not row:
         return None
 
-    username, password, totp = row
+    username, password, salt, totp = row
     user = User()
     user.id = username
     user.password = password
+    user.salt = salt
     user.totp = totp
     return user
