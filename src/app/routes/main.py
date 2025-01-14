@@ -1,5 +1,4 @@
-import base64
-
+from base64 import b64encode
 from flask import Blueprint, render_template, request
 from flask_login import login_required, current_user
 import sqlite3
@@ -14,6 +13,8 @@ from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Hash import SHA256
 from passlib.hash import sha256_crypt
 from Crypto.Util.Padding import unpad
+from ..auth_limits import DELAY_TIME
+import time
 
 main_bp = Blueprint("main", __name__)
 
@@ -48,10 +49,22 @@ def hello():
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
     cursor.execute(
-        "SELECT username, feed, sign, feed_date FROM feeds ORDER BY feed_date DESC"
+        "SELECT username, feed, sign, hashed_feed, feed_date FROM feeds ORDER BY feed_date DESC"
     )
     all_feeds = cursor.fetchall()
-    return render_template("hello.html", username=username, all_feeds=all_feeds)
+
+    sanitized_feeds = [
+        (
+            feed[0],
+            bleach.clean(feed[1], tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES),
+            feed[2],
+            feed[3],
+            feed[4],
+        )
+        for feed in all_feeds
+    ]
+
+    return render_template("hello.html", username=username, all_feeds=sanitized_feeds)
 
 
 @main_bp.route("/render", methods=["POST"])
@@ -61,6 +74,7 @@ def render():
     password = request.form.get("password")
 
     if not sha256_crypt.verify(password, current_user.password):
+        time.sleep(DELAY_TIME)
         return "Incorrect password", 403
 
     if not is_input_valid(md):
@@ -82,16 +96,14 @@ def render():
 
     rendered_hash = SHA256.new(rendered_safe.encode())
     sign = pkcs1_15.new(rsa_keys).sign(rendered_hash)
-
-    # TODO: find a way to verify sign by user
-    pub_key = RSA.importKey(current_user.pub_key)
-    print(pub_key.export_key())
-    pkcs1_15.new(pub_key).verify(rendered_hash, sign)
+    sign_b64 = b64encode(sign)
+    rendered_hash_b64 = b64encode(rendered_hash.digest())
 
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
     cursor.execute(
-        "INSERT INTO feeds (username, feed, sign) VALUES (?, ?, ?)", (username, rendered_safe, sign)
+        "INSERT INTO feeds (username, feed, sign, hashed_feed) VALUES (?, ?, ?, ?)",
+        (username, rendered_safe, sign_b64, rendered_hash_b64)
     )
     db.commit()
     return render_template("markdown.html", rendered=rendered_safe)

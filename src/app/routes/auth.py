@@ -89,6 +89,7 @@ def change_password():
     user = current_user
 
     if not sha256_crypt.verify(current_password, user.password):
+        time.sleep(DELAY_TIME)
         return "Current password is incorrect", 403
 
     totp_enc = user.totp
@@ -100,26 +101,27 @@ def change_password():
     prv_key_dec = unpad(cipher.decrypt(user.prv_key), AES.block_size)
 
     totp = pyotp.TOTP(totp_dec)
-    if totp.verify(code):
-        hashed_password = sha256_crypt.hash(new_password)
+    if not totp.verify(code):
+        time.sleep(DELAY_TIME)
+        return "Invalid 2FA token", 403
 
-        new_key = PBKDF2(new_password, user.salt)
-        cipher = AES.new(new_key, AES.MODE_CBC, iv)
-        totp_enc = iv + cipher.encrypt(totp_dec.encode())
-        cipher = AES.new(new_key, AES.MODE_CBC, iv)
-        prv_key_enc = cipher.encrypt(pad(prv_key_dec, AES.block_size))
+    hashed_password = sha256_crypt.hash(new_password)
 
-        db = sqlite3.connect(DATABASE)
-        cursor = db.cursor()
-        cursor.execute(
-            "UPDATE user SET password = ?, totp_secret = ?, prv_key = ? WHERE username = ?",
-            (hashed_password, totp_enc, prv_key_enc, user.id)
-        )
-        db.commit()
+    new_key = PBKDF2(new_password, user.salt)
+    cipher = AES.new(new_key, AES.MODE_CBC, iv)
+    totp_enc = iv + cipher.encrypt(totp_dec.encode())
+    cipher = AES.new(new_key, AES.MODE_CBC, iv)
+    prv_key_enc = cipher.encrypt(pad(prv_key_dec, AES.block_size))
 
-        return redirect("/hello")
+    db = sqlite3.connect(DATABASE)
+    cursor = db.cursor()
+    cursor.execute(
+         "UPDATE user SET password = ?, totp_secret = ?, prv_key = ? WHERE username = ?",
+        (hashed_password, totp_enc, prv_key_enc, user.id)
+    )
+    db.commit()
 
-    return "Invalid 2FA token", 403
+    return redirect("/hello")
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])

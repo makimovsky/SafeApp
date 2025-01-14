@@ -13,6 +13,11 @@
         .username-link:hover {
             color: blue;
         }
+        .feed-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -38,7 +43,15 @@
             <hr>
             <p>
                 <a href="{{ url_for('user_page.user_page', user_id=feed[0]) }}" class="username-link"><strong>{{ feed[0] }}</strong></a>
-                <em>{{ feed[3] }}</em><br>{{ feed[1]|safe }}<br><strong>Sign: </strong>{{ feed[2] }}
+                <em>{{ feed[4] }}</em><br>{{ feed[1]|safe }}
+            </p><br><br>
+            <p class="feed-content">
+                <strong>Hashed feed (in base64, SHA256):</strong><br>
+                {{ feed[3] }}
+            </p>
+            <p class="feed-content">
+                <strong>Signature (in base64):</strong><br>
+                {{ feed[2] }}
             </p>
         </div>
     </div>

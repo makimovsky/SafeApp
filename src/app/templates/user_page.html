@@ -8,6 +8,11 @@
             font-weight: bold;
             font-size: 20px;
         }
+        .feed-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -16,13 +21,24 @@
 </form>
 
 <h1>{{ username }}</h1>
-<div><strong>User Public Key:</strong><br>{{ pub_key }}</div>
-<h2>Posts</h2>
+<div class="feed-content"><strong>User Public Key:</strong><br>{{ pub_key }}</div><br><br>
+<h2>{{ username }}'s Posts</h2>
 {% if user_feeds %}
     {% for feed in user_feeds %}
         <div>
             <hr>
-            <p><strong><span class="username">{{ username }}</span></strong> <em>{{ feed[2] }}</em><br>{{ feed[1]|safe }}</p>
+            <p>
+                <strong>{{ feed[0] }}</strong>
+                <em>{{ feed[4] }}</em><br>{{ feed[1]|safe }}
+            </p><br><br>
+            <p class="feed-content">
+                <strong>Hashed feed (in base64, SHA256):</strong><br>
+                {{ feed[3] }}
+            </p>
+            <p class="feed-content">
+                <strong>Signature (in base64):</strong><br>
+                {{ feed[2] }}
+            </p>
         </div>
     {% endfor %}
 {% endif %}

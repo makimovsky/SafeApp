@@ -18,20 +18,21 @@ if __name__ == "__main__":
 
     sql.execute(
         "CREATE TABLE IF NOT EXISTS user "
-        "(username VARCHAR(32) PRIMARY KEY,"
-        "password VARCHAR(128),"
-        "salt VARCHAR(16),"
-        "totp_secret VARCHAR(32),"
-        "pub_key VARCHAR(256),"
-        "prv_key VARCHAR(256));"
+        "(username TEXT PRIMARY KEY,"
+        "password TEXT,"
+        "salt BLOB,"
+        "totp_secret BLOB,"
+        "pub_key TEXT,"
+        "prv_key BLOB);"
     )
-
+    # sql.execute('drop table feeds')
     sql.execute(
         "CREATE TABLE IF NOT EXISTS feeds "
         "(id INTEGER PRIMARY KEY,"
-        "username VARCHAR(32),"
-        "feed VARCHAR(256),"
-        "sign VARCHAR(256),"
+        "username TEXT,"
+        "feed TEXT,"
+        "sign BLOB,"
+        "hashed_feed BLOB,"
         "feed_date DATETIME DEFAULT CURRENT_TIMESTAMP);"
     )
     db.commit()
