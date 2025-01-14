@@ -16,8 +16,8 @@ from Crypto.Protocol.KDF import PBKDF2
 from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
 
-
 auth_bp = Blueprint("auth", __name__)
+GLOBAL_SECRET = b"206363ef77d567cc511df5098695d2b8"
 
 
 @auth_bp.route("/", methods=["GET", "POST"])
@@ -51,8 +51,7 @@ def login():
 
     totp_enc = user.totp
     iv = totp_enc[:AES.block_size]
-    key = PBKDF2(password, user.salt)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
+    cipher = AES.new(GLOBAL_SECRET, AES.MODE_CBC, iv)
     totp_dec = cipher.decrypt(totp_enc[AES.block_size:]).decode('utf-8')
 
     totp = pyotp.TOTP(totp_dec)
@@ -95,10 +94,11 @@ def change_password():
     totp_enc = user.totp
     iv = totp_enc[:AES.block_size]
     key = PBKDF2(current_password, user.salt)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
+    cipher = AES.new(GLOBAL_SECRET, AES.MODE_CBC, iv)
     totp_dec = cipher.decrypt(totp_enc[AES.block_size:]).decode('utf-8')
+
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    prv_key_dec = unpad(cipher.decrypt(user.prv_key), AES.block_size)
+    prv_key_dec = cipher.decrypt(user.prv_key)
 
     totp = pyotp.TOTP(totp_dec)
     if not totp.verify(code):
@@ -108,15 +108,16 @@ def change_password():
     hashed_password = sha256_crypt.hash(new_password)
 
     new_key = PBKDF2(new_password, user.salt)
-    cipher = AES.new(new_key, AES.MODE_CBC, iv)
+    cipher = AES.new(GLOBAL_SECRET, AES.MODE_CBC, iv)
     totp_enc = iv + cipher.encrypt(totp_dec.encode())
+
     cipher = AES.new(new_key, AES.MODE_CBC, iv)
-    prv_key_enc = cipher.encrypt(pad(prv_key_dec, AES.block_size))
+    prv_key_enc = cipher.encrypt(prv_key_dec)
 
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
     cursor.execute(
-         "UPDATE user SET password = ?, totp_secret = ?, prv_key = ? WHERE username = ?",
+        "UPDATE user SET password = ?, totp_secret = ?, prv_key = ? WHERE username = ?",
         (hashed_password, totp_enc, prv_key_enc, user.id)
     )
     db.commit()
@@ -144,14 +145,18 @@ def register():
     iv = Random.new().read(AES.block_size)
     salt = Random.new().read(16)
     key = PBKDF2(password, salt)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    cipher = AES.new(GLOBAL_SECRET, AES.MODE_CBC, iv)
     totp_enc = iv + cipher.encrypt(totp_secret.encode())
 
     rsa_keys = RSA.generate(2048)
     pub_key = rsa_keys.public_key().exportKey()
     prv_key = pad(rsa_keys.exportKey(), AES.block_size)
+
+    cipher = AES.new(GLOBAL_SECRET, AES.MODE_CBC, iv)
+    prv_key_enc_1 = cipher.encrypt(prv_key)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    prv_key_enc = cipher.encrypt(prv_key)
+    prv_key_enc_2 = cipher.encrypt(prv_key_enc_1)
 
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
@@ -159,7 +164,7 @@ def register():
     try:
         cursor.execute(
             "INSERT INTO user (username, password, salt, totp_secret, pub_key, prv_key) VALUES (?, ?, ?, ?, ?, ?)",
-            (username, hashed_password, salt, totp_enc, pub_key, prv_key_enc)
+            (username, hashed_password, salt, totp_enc, pub_key, prv_key_enc_2)
         )
         db.commit()
     except sqlite3.IntegrityError:

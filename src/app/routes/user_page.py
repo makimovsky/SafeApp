@@ -28,6 +28,8 @@ def user_page(user_id):
         for feed in user_feeds
     ]
 
+    print(user_feeds)
+
     cursor.execute(
         "SELECT pub_key FROM user WHERE username == ?",
         (user_id,)

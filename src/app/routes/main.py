@@ -15,6 +15,7 @@ from passlib.hash import sha256_crypt
 from Crypto.Util.Padding import unpad
 from ..auth_limits import DELAY_TIME
 import time
+from .auth import GLOBAL_SECRET
 
 main_bp = Blueprint("main", __name__)
 
@@ -91,8 +92,11 @@ def render():
     iv = current_user.totp[:AES.block_size]
     key = PBKDF2(password, current_user.salt)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    prv_key_dec = unpad(cipher.decrypt(prv_key), AES.block_size)
-    rsa_keys = RSA.importKey(prv_key_dec)
+    prv_key_dec_1 = cipher.decrypt(prv_key)
+    cipher = AES.new(GLOBAL_SECRET, AES.MODE_CBC, iv)
+    prv_key_dec_2 = unpad(cipher.decrypt(prv_key_dec_1), AES.block_size)
+
+    rsa_keys = RSA.importKey(prv_key_dec_2)
 
     rendered_hash = SHA256.new(rendered_safe.encode())
     sign = pkcs1_15.new(rsa_keys).sign(rendered_hash)
