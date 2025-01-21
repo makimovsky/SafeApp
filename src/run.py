@@ -25,7 +25,7 @@ if __name__ == "__main__":
         "pub_key TEXT,"
         "prv_key BLOB);"
     )
-    # sql.execute('drop table feeds')
+
     sql.execute(
         "CREATE TABLE IF NOT EXISTS feeds "
         "(id INTEGER PRIMARY KEY,"
